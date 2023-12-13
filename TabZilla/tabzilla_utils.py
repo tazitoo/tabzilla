@@ -168,6 +168,7 @@ def cross_validation(
     time_limit: int,
     scaler: str,
     args: NamedTuple,
+    save_model=False,
 ) -> ExperimentResult:
     """
     takes a BaseModel and TabularDataset as input, and trains and evaluates the model using cross validation with all
@@ -295,6 +296,19 @@ def cross_validation(
         predictions["test"].append(test_predictions.tolist())
         probabilities["test"].append(test_probs.tolist())
         ground_truth["test"].append(y_test.tolist())
+
+    # From Tabsurvey train.py  line 61 - needs to be translated to tabzilla scorer/timer, etc.
+    # Best run is saved to file
+    if save_model:
+        print("Results:", sc.get_results())
+        print("Train time:", train_timer.get_average_time())
+        print("Inference time:", test_timer.get_average_time())
+
+        # Save the all statistics to a file
+        save_results_to_file(args, sc.get_results(),
+                             train_timer.get_average_time(), test_timer.get_average_time(),
+                             model.params)
+
 
     return ExperimentResult(
         dataset=dataset,
