@@ -184,6 +184,8 @@ class TabZillaObjective(object):
             compress=False,
         )
 
+        #self.model_handle.save_model(self, filename_extension=str(trial.number))
+
         return obj_val
 
 
@@ -263,8 +265,12 @@ def main(experiment_args, model_name, dataset_dir):
             n_trials=experiment_args.n_opt_trials,
             timeout=experiment_args.experiment_time_limit,
         )
+    print('study ended - what is the best trial?', type(study.best_trial))
+    print("Best parameters:", study.best_trial.params)
 
     print(f"trials complete. results written to {output_path}")
+
+    return study
 
 
 if __name__ == "__main__":
@@ -301,4 +307,8 @@ if __name__ == "__main__":
     )
     print(f"EXPERIMENT ARGS: {experiment_args}")
 
-    main(experiment_args, args.model_name, args.dataset_dir)
+    study = main(experiment_args, args.model_name, args.dataset_dir)
+
+    # save the best model from the study
+    #best_model = self.load_model(filename_extension=str(study.best_trial))
+    #self.save_model(filename_extension='best')
