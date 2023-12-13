@@ -4,7 +4,8 @@ import numpy as np
 from sklearn.model_selection import KFold, StratifiedKFold
 from tabzilla_datasets import TabularDataset
 
-cv_n_folds = 10  # Number of folds to use for splitting
+#cv_n_folds = 10  # Number of folds to use for splitting
+cv_n_folds = 5  # Number of folds to use for splitting
 
 
 def dataset_preprocessor(
