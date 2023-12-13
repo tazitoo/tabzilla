@@ -92,6 +92,9 @@ class DANet(BaseModelTorch):
             num_classes=self.num_classes_for_fit,
         )
 
+        ## ADDED
+        self.save_model()
+
         return (
             self.model.history["loss"],
             self.model.history["valid_" + self.eval_metric[0]],
