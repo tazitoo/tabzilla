@@ -87,7 +87,8 @@ class KNN(BaseModel):
                 "n_neighbors", list(range(3, 42, 2))
             ),
             "knn_alg": trial.suggest_categorical("knn_alg", ["kd_tree", "ball_tree"]),
-            "leaf_size": trial.suggest_int("leaf_size", [30, 50, 70, 100, 300]),
+            #"leaf_size": trial.suggest_int("leaf_size", [30, 50, 70, 100, 300]),
+            "leaf_size": trial.suggest_int("leaf_size", 30, 300),
         }
         return params
 
