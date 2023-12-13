@@ -55,6 +55,10 @@ class XGBoost(BaseModel):
             verbose_eval=self.args.logging_period,
         )
 
+        ## ADDED TO SAVE XGB MODELS
+        print('xgb - trying to save model')
+        self.save_model()
+
         return [], []
 
     def predict(self, X):
