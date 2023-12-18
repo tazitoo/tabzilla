@@ -1,7 +1,15 @@
 #
-/TabZilla/datasets
-/TabZilla/results
-/TabZilla/logs
+TabZilla/datasets
+TabZilla/results
+TabZilla/logs
+Tabzilla/output/
+
+# model artifacts
+*_info
+tmp_*
+tmp_*
+*.pt
+*.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
