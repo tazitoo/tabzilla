@@ -1,0 +1,25 @@
+MODEL             saved
+-----            -------
+'LinearModel',  no
+'KNN',  no
+'SVM',  no
+'DecisionTree',  
+'RandomForest', 
+'XGBoost',  yes
+'CatBoost', 
+'LightGBM', 
+'MLP',  yes
+'TabNet',  yes
+'VIME',  yes
+'TabTransformer',  yes
+'NODE',  no
+'DeepGBM',  DNF x_np = x_np[~np.isnan(x_np)]
+'STG',  no (no trials complete...?)
+'NAM',  no (needs GPU - shoudl commit and retry on firelord)
+'DeepFM',  no
+'SAINT',  yes
+'DANet',  yes
+'TabPFNModel',  no (needs GPU, and n_features < 100)
+'rtdl_MLP',  no (needs GPU?)
+'rtdl_ResNet', 
+'rtdl_FTTransformer'
