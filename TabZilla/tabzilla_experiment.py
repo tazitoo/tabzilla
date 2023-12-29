@@ -13,13 +13,14 @@ from typing import NamedTuple
 import optuna
 
 optuna.logging.set_verbosity(optuna.logging.ERROR)
-
 from models.basemodel import BaseModel
+from models.tree_models import XGBoost
 from tabzilla_alg_handler import ALL_MODELS, get_model
 from tabzilla_datasets import TabularDataset
 from tabzilla_utils import (
     ExperimentResult,
     cross_validation,
+    final_evaluation,
     get_experiment_parser,
     get_scorer,
 )
@@ -150,6 +151,7 @@ class TabZillaObjective(object):
                 self.time_limit,
                 scaler=args.scale_numerical_features,
                 args=args,
+                save_model=False,
             )
             obj_val = result.scorers["val"].get_objective_result()
         except Exception as e:
@@ -183,9 +185,6 @@ class TabZillaObjective(object):
             write_predictions=self.experiment_args.write_predictions,
             compress=False,
         )
-
-        #self.model_handle.save_model(self, filename_extension=str(trial.number))
-
         return obj_val
 
 
@@ -265,12 +264,10 @@ def main(experiment_args, model_name, dataset_dir):
             n_trials=experiment_args.n_opt_trials,
             timeout=experiment_args.experiment_time_limit,
         )
-    print('study ended - what is the best trial?', type(study.best_trial))
-    print("Best parameters:", study.best_trial.params)
 
     print(f"trials complete. results written to {output_path}")
 
-    return study
+    return study, objective
 
 
 if __name__ == "__main__":
@@ -307,8 +304,82 @@ if __name__ == "__main__":
     )
     print(f"EXPERIMENT ARGS: {experiment_args}")
 
-    study = main(experiment_args, args.model_name, args.dataset_dir)
+    study, objective = main(experiment_args, args.model_name, args.dataset_dir)
 
-    # save the best model from the study
-    #best_model = self.load_model(filename_extension=str(study.best_trial))
-    #self.save_model(filename_extension='best')
+    print("study ended - what is the best trial?", type(study.best_trial))
+    print("Best parameters:", study.best_trial.params)
+
+    # using best_params from optuna, fit the best model
+
+    # dataset = TabularDataset.read(Path(args.dataset_dir).resolve())
+    max_epochs = experiment_args.epochs
+
+    arg_namespace = namedtuple(
+        "args",
+        [
+            "model_name",
+            "batch_size",
+            "scale_numerical_features",
+            "val_batch_size",
+            "objective",
+            "gpu_ids",
+            "use_gpu",
+            "epochs",
+            "data_parallel",
+            "early_stopping_rounds",
+            "dataset",
+            "cat_idx",
+            "num_features",
+            "subset_features",
+            "subset_rows",
+            "subset_features_method",
+            "subset_rows_method",
+            "cat_dims",
+            "num_classes",
+            "logging_period",
+        ],
+    )
+
+    model_args = arg_namespace(
+        model_name=args.model_name,
+        batch_size=experiment_args.batch_size,
+        val_batch_size=experiment_args.val_batch_size,
+        scale_numerical_features=experiment_args.scale_numerical_features,
+        epochs=max_epochs,
+        gpu_ids=experiment_args.gpu_ids,
+        use_gpu=experiment_args.use_gpu,
+        data_parallel=experiment_args.data_parallel,
+        early_stopping_rounds=experiment_args.early_stopping_rounds,
+        logging_period=experiment_args.logging_period,
+        objective=objective.dataset.target_type,
+        dataset=objective.dataset.name,
+        cat_idx=objective.dataset.cat_idx,
+        num_features=objective.dataset.num_features,
+        subset_features=experiment_args.subset_features,
+        subset_rows=experiment_args.subset_rows,
+        subset_features_method=experiment_args.subset_features_method,
+        subset_rows_method=experiment_args.subset_rows_method,
+        cat_dims=objective.dataset.cat_dims,
+        num_classes=objective.dataset.num_classes,
+    )
+
+    my_model = XGBoost(XGBoost.default_parameters(), model_args)
+
+    foo = final_evaluation(
+        my_model,
+        objective.dataset,
+        None,
+        model_args.scale_numerical_features,
+        model_args,
+        study.best_params,
+        file_type="json",
+    )
+
+    # if hasattr(study, "best_params"):
+    #     save_results_to_file(
+    #         args,
+    #         None,
+    #         train_time=None,
+    #         test_time=None,
+    #         best_params=study.best_params,
+    #     )
