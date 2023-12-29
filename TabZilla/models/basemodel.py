@@ -1,9 +1,14 @@
+import math
 import typing as tp
 
 import numpy as np
 import optuna
-import math
-from utils.io_utils import save_model_to_file, save_predictions_to_file
+
+from utils.io_utils import (
+    load_model_from_file,
+    save_model_to_file,
+    save_predictions_to_file,
+)
 
 
 class BaseModel:
@@ -38,7 +43,7 @@ class BaseModel:
         is necessary for the cross validation.
     """
 
-    # this list should be populated with "classification", "regression", and "binary" for each subclass if 
+    # this list should be populated with "classification", "regression", and "binary" for each subclass if
     # the model is not implemented for these objective types
     objtype_not_implemented = []
 
@@ -105,18 +110,22 @@ class BaseModel:
     # Patch around the original predict method to handle case of missing classes in training set and subsampling.
     # This needs to be done as a separate method, since several of the inheriting classes override the predict_proba or
     # predict methods.
-    def predict_wrapper(self, X: np.ndarray, max_rows : int) -> tp.Tuple[np.ndarray, np.ndarray]:
+    def predict_wrapper(
+        self, X: np.ndarray, max_rows: int
+    ) -> tp.Tuple[np.ndarray, np.ndarray]:
         if max_rows > 0 and X.shape[0] > max_rows:
             X_ens = []
             X_preds = []
             X_probas = []
             for idx, i in enumerate(range(0, X.shape[0], max_rows)):
                 print(f"Fitting samples {idx+1} of {math.ceil(X.shape[0]/max_rows)}")
-                X_ens.append(X[i:i+max_rows])
+                X_ens.append(X[i : i + max_rows])
                 preds, probas = self.predict(X_ens[-1])
                 X_preds.append(preds)
                 X_probas.append(probas)
-            self.predictions, self.prediction_probabilities = np.concatenate(X_preds, axis=0), np.concatenate(X_probas, axis=0)
+            self.predictions, self.prediction_probabilities = np.concatenate(
+                X_preds, axis=0
+            ), np.concatenate(X_probas, axis=0)
         else:
             self.predictions, self.prediction_probabilities = self.predict(X)
         if (
@@ -189,6 +198,9 @@ class BaseModel:
         """
         self.save_predictions(y_true, filename_extension)
         self.save_model(filename_extension)
+
+    def load_model(self, args):
+        self.model = load_model_from_file(self, args, extension="")
 
     def clone(self):
         """Clone the model.

@@ -18,7 +18,6 @@ from models.basemodel import BaseModel
 
 
 class XGBoost(BaseModel):
-
     # TabZilla: add default number of boosting rounds
     # default_epochs = 500
 
@@ -26,6 +25,7 @@ class XGBoost(BaseModel):
         super().__init__(params, args)
 
         self.params["verbosity"] = 1
+        self.model = xgb.Booster()  # dummy model so we can load one...
 
         if args.use_gpu:
             self.params["tree_method"] = "gpu_hist"
@@ -54,19 +54,32 @@ class XGBoost(BaseModel):
             early_stopping_rounds=self.args.early_stopping_rounds,
             verbose_eval=self.args.logging_period,
         )
-
-        ## ADDED TO SAVE XGB MODELS
-        print('xgb - trying to save model')
-        self.save_model()
-
         return [], []
 
-    def predict(self, X):
+    def predict(self, X, strict_shape=True):
+        # this gets inherited from Basemodel - and returns both predicted classes and probas
         X = xgb.DMatrix(X)
         return super().predict(X)
 
     def predict_proba(self, X):
         probabilities = self.model.predict(X)
+        # probabilities = self.predict(X)
+
+        if self.args.objective == "binary":
+            probabilities = probabilities.reshape(-1, 1)
+            probabilities = np.concatenate((1 - probabilities, probabilities), 1)
+
+        self.prediction_probabilities = probabilities
+        return self.prediction_probabilities
+
+    def alt_predict(self, X, strict_shape=True):
+        X = xgb.DMatrix(X)
+        # return super().predict(X)
+        return self.model.predict(X)
+
+    def alt_predict_proba(self, X):
+        # probabilities = self.model.predict(X)
+        probabilities = self.alt_predict(X)
 
         if self.args.objective == "binary":
             probabilities = probabilities.reshape(-1, 1)
@@ -107,6 +120,22 @@ class XGBoost(BaseModel):
         }
         return params
 
+    def save_model(self, filename):
+        """
+        use the xgboost method to save the file
+        """
+        self.model.save_model(filename)
+
+    def load_model(self, filename):
+        """
+        use the xgboot method to load the file to a tmp model first
+        """
+        # tmp_xgb = xgb.Booster()
+        # tmp_xgb.load_model(filename)
+
+        # self.model = tmp_xgb
+        self.model.load_model(filename)
+
 
 """
     CatBoost (https://catboost.ai/)
@@ -114,7 +143,6 @@ class XGBoost(BaseModel):
 
 
 class CatBoost(BaseModel):
-
     # TabZilla: add default number of boosting rounds
     # default_epochs = 500
 
@@ -139,12 +167,13 @@ class CatBoost(BaseModel):
         if args.objective == "regression":
             self.model = cat.CatBoostRegressor(**self.params)
         elif args.objective == "classification":
-            self.model = cat.CatBoostClassifier(classes_count=self.args.num_classes, **self.params)
+            self.model = cat.CatBoostClassifier(
+                classes_count=self.args.num_classes, **self.params
+            )
         elif args.objective == "binary":
             self.model = cat.CatBoostClassifier(**self.params)
 
     def fit(self, X, y, X_val=None, y_val=None):
-
         # CatBoost does not accept float arrays if cat features are defined
         if self.args.cat_idx:
             X = X.astype("object")
@@ -199,7 +228,6 @@ class CatBoost(BaseModel):
 
 
 class LightGBM(BaseModel):
-
     # TabZilla: add default number of boosting rounds
     # default_epochs = 500
 

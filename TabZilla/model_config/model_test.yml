@@ -9,7 +9,7 @@ trial_time_limit: 100
 
 ###### number of trials for hyperparameter search & optimization
 n_random_trials: 0
-n_opt_trials: 100
+n_opt_trials: 5
 hparam_seed: 0
 
 ###### GPU parameters
