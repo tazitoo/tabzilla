@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
+
 from models.basemodel import BaseModel
 from tabzilla_data_processing import process_data
 from tabzilla_datasets import TabularDataset
+from utils.io_utils import save_model_to_file, save_results_to_file
 from utils.scorer import BinScorer, ClassScorer, RegScorer
 from utils.timer import Timer
 
@@ -299,16 +301,21 @@ def cross_validation(
 
     # From Tabsurvey train.py  line 61 - needs to be translated to tabzilla scorer/timer, etc.
     # Best run is saved to file
-    if save_model:
-        print("Results:", sc.get_results())
-        print("Train time:", train_timer.get_average_time())
-        print("Inference time:", test_timer.get_average_time())
+    # if save_model:
+    #     # print("Results:", sc.get_results())
+    #     print("Results:", scorers["val"].get_results())
+    #     print("Train time:", timers["train"].get_average_time())
+    #     print("Inference time:", timers["test"].get_average_time())
 
-        # Save the all statistics to a file
-        save_results_to_file(args, sc.get_results(),
-                             train_timer.get_average_time(), test_timer.get_average_time(),
-                             model.params)
-
+    #     # Save the all statistics to a file
+    #     save_results_to_file(
+    #         args,
+    #         scorers["val"].get_results(),
+    #         timers["train"].get_average_time(),
+    #         timers["test"].get_average_time(),
+    #         model.params,
+    #     )
+    #     save_model_to_file(model, args, extension="best")
 
     return ExperimentResult(
         dataset=dataset,
@@ -319,6 +326,94 @@ def cross_validation(
         predictions=predictions,
         probabilities=probabilities,
         ground_truth=ground_truth,
+    )
+
+
+def final_evaluation(
+    model: BaseModel,
+    dataset: TabularDataset,
+    time_limit: int,
+    scaler: str,
+    args: NamedTuple,
+    params,  # from optuna.best_params
+    save_model=True,
+    file_type="pkl",
+) -> ExperimentResult:
+    scorers = {
+        "train": get_scorer(dataset.target_type),
+        "val": get_scorer(dataset.target_type),
+        "test": get_scorer(dataset.target_type),
+    }
+
+    split_dictionary = dataset.split_indeces[0]
+    train_index = split_dictionary["train"]
+    val_index = split_dictionary["val"]
+    test_index = split_dictionary["test"]
+
+    processed_data = process_data(
+        dataset,
+        train_index,
+        val_index,
+        test_index,
+        verbose=False,
+        scaler=scaler,
+        one_hot_encode=False,
+        args=args,
+    )
+
+    X_train, y_train = processed_data["data_train"]
+    X_val, y_val = processed_data["data_val"]
+    X_test, y_test = processed_data["data_test"]
+    # Create a new unfitted version of the model
+
+    # loss history can be saved if needed
+    loss_history, val_loss_history = model.fit(
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+    )
+
+    # evaluate on train set
+    train_predictions, train_probs = model.predict_wrapper(X_train, args.subset_rows)
+    # evaluate on val set
+    val_predictions, val_probs = model.predict_wrapper(X_val, args.subset_rows)
+    # evaluate on test set
+    test_predictions, test_probs = model.predict_wrapper(X_test, args.subset_rows)
+    extra_scorer_args = {}
+    if dataset.target_type == "classification":
+        extra_scorer_args["labels"] = range(dataset.num_classes)
+
+    # evaluate on train, val, and test sets
+    scorers["train"].eval(y_train, train_predictions, train_probs, **extra_scorer_args)
+    scorers["val"].eval(y_val, val_predictions, val_probs, **extra_scorer_args)
+    scorers["test"].eval(y_test, test_predictions, test_probs, **extra_scorer_args)
+
+    if save_model:
+        # # print("Results:", sc.get_results())
+        # print("Results:", scorers["val"].get_results())
+        # # print("Train time:", timers["train"].get_average_time())
+        # # print("Inference time:", timers["test"].get_average_time())
+
+        # # Save the all statistics to a file
+        # save_results_to_file(
+        #     args,
+        #     scorers["val"].get_results(),
+        #     None,
+        #     None,
+        #     model.params,
+        # )
+        save_model_to_file(model, args, extension="best", file_type=file_type)
+
+    return ExperimentResult(
+        dataset=dataset,
+        scaler=scaler,
+        model=model,
+        timers=None,
+        scorers=scorers,
+        predictions=None,
+        probabilities=None,
+        ground_truth=None,
     )
 
 
