@@ -337,7 +337,7 @@ def final_evaluation(
     args: NamedTuple,
     params,  # from optuna.best_params
     save_model=True,
-    file_type="pkl",
+    extension="pkl",
 ) -> ExperimentResult:
     scorers = {
         "train": get_scorer(dataset.target_type),
