@@ -136,6 +136,19 @@ class XGBoost(BaseModel):
         # self.model = tmp_xgb
         self.model.load_model(filename)
 
+    def attribute(self, X: np.ndarray, remove_bias=True) -> np.ndarray:
+        """
+        generate local attributions using XGB's built in treeSHAP
+
+        last column from `pred_contribs` is the bias term - we generally won't want it
+        """
+        X = xgb.DMatrix(X)
+        sv = self.model.predict(X, pred_contribs=True)
+        if remove_bias:
+            return sv[:, :-1]
+        else:
+            return sv
+
 
 """
     CatBoost (https://catboost.ai/)
