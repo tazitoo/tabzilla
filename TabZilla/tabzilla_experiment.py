@@ -14,7 +14,8 @@ import optuna
 
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 from models.basemodel import BaseModel
-from models.tree_models import XGBoost
+
+# from models.tree_models import XGBoost
 from tabzilla_alg_handler import ALL_MODELS, get_model
 from tabzilla_datasets import TabularDataset
 from tabzilla_utils import (
@@ -363,7 +364,17 @@ if __name__ == "__main__":
         num_classes=objective.dataset.num_classes,
     )
 
-    my_model = XGBoost(XGBoost.default_parameters(), model_args)
+    # my_model = XGBoost(XGBoost.default_parameters(), model_args)
+    model_handle = get_model(args.model_name)
+    my_model = model_handle(model_handle.default_parameters(), model_args)
+
+    # determine file type for saving - will need a function eventually
+    if args.model_name in ["XGBoost", "CatBoost", "LightGBM"]:
+        file_type = "json"
+    elif args.model_name in ["MLP", "NeuralNet", "saint"]:
+        file_type = "pt"
+    else:
+        file_type = "pkl"
 
     foo = final_evaluation(
         my_model,
@@ -372,14 +383,5 @@ if __name__ == "__main__":
         model_args.scale_numerical_features,
         model_args,
         study.best_params,
-        file_type="json",
+        file_type=file_type,
     )
-
-    # if hasattr(study, "best_params"):
-    #     save_results_to_file(
-    #         args,
-    #         None,
-    #         train_time=None,
-    #         test_time=None,
-    #         best_params=study.best_params,
-    #     )
