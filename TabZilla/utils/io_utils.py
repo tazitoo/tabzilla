@@ -36,7 +36,7 @@ def save_model_to_file(model, args, extension="", file_type="pkl"):
         extension=extension,
     )
 
-    print("DeBUG --- ", filename)
+    print("DeBUG in save_model--- ", filename)
     if hasattr(model, "save_model"):
         try:
             model.save_model(filename)
@@ -146,17 +146,22 @@ def get_output_path(args, filename, file_type, directory=None, extension=None):
         os.makedirs(dir_path)
 
     file_path = dir_path + "/" + filename
+    print("DEBUG----")
+    print("filename -- ", filename)
+    print("file_path #1  --", file_path)
 
     if extension is not None:
         file_path += "_" + str(extension)
 
-    file_path += "." + file_type
+    print("file_path #2a  --", file_path)
 
-    print("DEBUG----")
-    print("args.model_name - ", args.model_name)
-    print
+    file_path += "." + file_type
+    print("file_path 2b file_type", file_type)
+    print("file_path #2  --", file_path)
+
+    # print("args.model_name - ", args.model_name)
     print("dir_path", dir_path)
-    print("file_path", file_path)
+    print("file_path #3  --", file_path)
 
     # For example: .../m_3.pkl
 
