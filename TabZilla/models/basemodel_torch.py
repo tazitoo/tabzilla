@@ -1,15 +1,16 @@
-import time
-import string
 import random
+import string
+import time
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from captum.attr import IntegratedGradients
 from torch.utils.data import DataLoader, TensorDataset
-from utils.io_utils import get_output_path
 
 from models.basemodel import BaseModel
+from utils.io_utils import get_output_path
 
 
 class BaseModelTorch(BaseModel):
@@ -23,7 +24,9 @@ class BaseModelTorch(BaseModel):
         )
 
         # tabzilla: use a random string for temporary saving/loading of the model. pass this to load/save model functions
-        self.tmp_name = "tmp_" + ''.join(random.sample(string.ascii_uppercase + string.digits, k=12))
+        self.tmp_name = "tmp_" + "".join(
+            random.sample(string.ascii_uppercase + string.digits, k=12)
+        )
 
     def to_device(self):
         if self.args.data_parallel:
@@ -90,7 +93,6 @@ class BaseModelTorch(BaseModel):
         start_time = time.time()
         for epoch in range(self.args.epochs):
             for i, (batch_X, batch_y) in enumerate(train_loader):
-
                 out = self.model(batch_X.to(self.device))
 
                 if (
@@ -98,7 +100,7 @@ class BaseModelTorch(BaseModel):
                     or self.args.objective == "binary"
                 ):
                     # out = out.squeeze()
-                    out = out.reshape((batch_X.shape[0], ))
+                    out = out.reshape((batch_X.shape[0],))
 
                 loss = loss_func(out, batch_y.to(self.device))
                 loss_history.append(loss.item())
@@ -117,8 +119,8 @@ class BaseModelTorch(BaseModel):
                     self.args.objective == "regression"
                     or self.args.objective == "binary"
                 ):
-                    #out = out.squeeze()
-                    out = out.reshape((batch_val_X.shape[0], ))
+                    # out = out.squeeze()
+                    out = out.reshape((batch_val_X.shape[0],))
 
                 val_loss += loss_func(out, batch_val_y.to(self.device))
                 val_dim += 1
@@ -199,6 +201,10 @@ class BaseModelTorch(BaseModel):
         return np.concatenate(predictions)
 
     def save_model(self, filename_extension="", directory="models"):
+        """
+        minimal save capability for the pytorch family of models...
+        this overrides the BaseModel save_model method, but a specific pytorch arch may override this
+        """
         filename = get_output_path(
             self.args,
             directory=directory,
@@ -206,6 +212,7 @@ class BaseModelTorch(BaseModel):
             extension=filename_extension,
             file_type="pt",
         )
+        print("BASEMODEL_TORCH DEBUG line 215 --", filename)
         torch.save(self.model.state_dict(), filename)
 
     def load_model(self, filename_extension="", directory="models"):
@@ -226,3 +233,35 @@ class BaseModelTorch(BaseModel):
     @classmethod
     def define_trial_parameters(cls, trial, args):
         raise NotImplementedError("This method has to be implemented by the sub class")
+
+    def attribute(
+        self,
+        X: np.ndarray,
+        baselines=None,
+        multiply_by_inputs=True,
+        target=None,
+        additional_forward_args=None,
+        n_steps=50,
+        remove_bias=True,
+    ) -> np.ndarray:
+        """
+        generate local attributions using XGB's built in treeSHAP
+
+        last column from `pred_contribs` is the bias term - we generally won't want it
+        """
+        X = xgb.DMatrix(X)
+        sv = self.model.predict(X, pred_contribs=True)
+        if remove_bias:
+            return sv[:, :-1]
+        else:
+            return sv
+
+        ig = IntegratedGradients(self.model, baseline=baseline)
+        attributions = ig.attribute(
+            X,
+            baselines=baselines,
+            target=None,
+            additional_forward_args=None,
+            n_steps=50,
+        )
+        return attributions
