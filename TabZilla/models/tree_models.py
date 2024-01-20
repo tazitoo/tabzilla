@@ -6,6 +6,7 @@ import numpy as np
 import xgboost as xgb
 
 from models.basemodel import BaseModel
+from utils.io_utils import get_output_path
 
 """
     Define all Gradient Boosting Decision Tree Models:
@@ -120,16 +121,32 @@ class XGBoost(BaseModel):
         }
         return params
 
-    def save_model(self, filename):
+    # def save_model(self, filename):
+    def save_model(self, extension="", directory="models"):
         """
         use the xgboost method to save the file
         """
+        filename = get_output_path(
+            self.args,
+            directory=directory,
+            filename="m",
+            extension=extension,
+            file_type="json",
+        )
+        # print("XGB DEBUG line 135 --", filename)
         self.model.save_model(filename)
 
-    def load_model(self, filename):
+    def load_model(self, extension="", directory="models"):
         """
         use the xgboot method to load the file to a tmp model first
         """
+        filename = get_output_path(
+            self.args,
+            directory=directory,
+            filename="m",
+            extension=extension,
+            file_type="json",
+        )
         # tmp_xgb = xgb.Booster()
         # tmp_xgb.load_model(filename)
 
