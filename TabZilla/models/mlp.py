@@ -34,6 +34,12 @@ class MLP(BaseModelTorch):
         X = np.array(X, dtype=float)
         return super().predict_helper(X)
 
+    def alt_predict_proba(self, X):
+        # self.model.eval()
+        X = np.array(X, dtype=float)
+        X = torch.tensor(X).float().cuda()
+        return self.model(X).detach().cpu().numpy()
+
     @classmethod
     def define_trial_parameters(cls, trial, args):
         params = {
