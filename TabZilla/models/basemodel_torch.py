@@ -135,7 +135,7 @@ class BaseModelTorch(BaseModel):
                 min_val_loss_idx = epoch
 
                 # Save the currently best model
-                self.save_model(filename_extension="best", directory=self.tmp_name)
+                self.save_model(extension="best", directory=self.tmp_name)
 
             if min_val_loss_idx + self.args.early_stopping_rounds < epoch:
                 print(
@@ -153,7 +153,7 @@ class BaseModelTorch(BaseModel):
                 break
 
         # Load best model
-        self.load_model(filename_extension="best", directory=self.tmp_name)
+        self.load_model(extension="best", directory=self.tmp_name)
         return loss_history, val_loss_history
 
     def predict(self, X):
@@ -200,7 +200,7 @@ class BaseModelTorch(BaseModel):
                 predictions.append(preds.detach().cpu().numpy())
         return np.concatenate(predictions)
 
-    def save_model(self, filename_extension="", directory="models"):
+    def save_model(self, extension="", file_type="pt", directory="models"):
         """
         minimal save capability for the pytorch family of models...
         this overrides the BaseModel save_model method, but a specific pytorch arch may override this
@@ -209,22 +209,27 @@ class BaseModelTorch(BaseModel):
             self.args,
             directory=directory,
             filename="m",
-            extension=filename_extension,
+            extension=extension,
             file_type="pt",
         )
-        print("BASEMODEL_TORCH DEBUG line 215 --", filename)
+        # print("BASEMODEL_TORCH DEBUG line 215 --", filename)
         torch.save(self.model.state_dict(), filename)
+        # torch.save(self.model, filename)
 
-    def load_model(self, filename_extension="", directory="models"):
+    def load_model(self, extension="", directory="models"):
         filename = get_output_path(
             self.args,
             directory=directory,
             filename="m",
-            extension=filename_extension,
+            extension=extension,
             file_type="pt",
         )
+        # print("BASEMODEL_TORCH DEBUG line 227 --", filename)
         state_dict = torch.load(filename)
         self.model.load_state_dict(state_dict)
+        self.model.cuda()
+        # self.model.cpu()  # if we load it, let's put it on the CPU
+        # self.model.eval()
 
     def get_model_size(self):
         model_size = sum(t.numel() for t in self.model.parameters() if t.requires_grad)
@@ -242,26 +247,39 @@ class BaseModelTorch(BaseModel):
         target=None,
         additional_forward_args=None,
         n_steps=50,
-        remove_bias=True,
+        remove_bias=False,
     ) -> np.ndarray:
         """
-        generate local attributions using XGB's built in treeSHAP
+        generate local attributions using pytorch's built in treeSHAP
 
-        last column from `pred_contribs` is the bias term - we generally won't want it
+        deepLiftShap does not include the extra bias column in the attributions, so there's nothign to remove
         """
-        X = xgb.DMatrix(X)
-        sv = self.model.predict(X, pred_contribs=True)
-        if remove_bias:
-            return sv[:, :-1]
-        else:
-            return sv
+        from captum.attr import DeepLift
 
-        ig = IntegratedGradients(self.model, baseline=baseline)
-        attributions = ig.attribute(
-            X,
-            baselines=baselines,
-            target=None,
-            additional_forward_args=None,
-            n_steps=50,
-        )
-        return attributions
+        X = np.array(X, dtype=float)
+        X = torch.tensor(X).float().cuda()
+        preds = self.model(X)
+        target = torch.argmax(preds, dim=1)
+        # Computes shap values using deeplift
+        dl = DeepLift(self.model)
+
+        if baselines is not None:
+            baselines = torch.tensor(baselines).float().cuda()
+            # baselines = torch.zeros_like(X)
+        sv = dl.attribute(X, target=target, baselines=baselines)
+
+        print("DEBUG: sv.shape", sv.shape, X.shape)
+        # if remove_bias:
+        #     return sv[:, :-1]
+        # else:
+        #     return sv
+
+        # ig = IntegratedGradients(self.model, baseline=baseline)
+        # attributions = ig.attribute(
+        #     X,
+        #     baselines=baselines,
+        #     target=None,
+        #     additional_forward_args=None,
+        #     n_steps=50,
+        # )
+        return sv.cpu().detach().numpy()
