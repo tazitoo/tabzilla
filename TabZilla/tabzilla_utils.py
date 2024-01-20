@@ -337,14 +337,16 @@ def final_evaluation(
     args: NamedTuple,
     params,  # from optuna.best_params
     save_model=True,
-    extension="pkl",
+    extension="best",
 ) -> ExperimentResult:
     scorers = {
         "train": get_scorer(dataset.target_type),
         "val": get_scorer(dataset.target_type),
         "test": get_scorer(dataset.target_type),
     }
-
+    '''
+    Use best HPs from optuna study to fit model, evaluate on train, val, and test sets, and save model.
+    '''
     split_dictionary = dataset.split_indeces[0]
     train_index = split_dictionary["train"]
     val_index = split_dictionary["val"]
@@ -390,20 +392,7 @@ def final_evaluation(
     scorers["test"].eval(y_test, test_predictions, test_probs, **extra_scorer_args)
 
     if save_model:
-        # # print("Results:", sc.get_results())
-        # print("Results:", scorers["val"].get_results())
-        # # print("Train time:", timers["train"].get_average_time())
-        # # print("Inference time:", timers["test"].get_average_time())
-
-        # # Save the all statistics to a file
-        # save_results_to_file(
-        #     args,
-        #     scorers["val"].get_results(),
-        #     None,
-        #     None,
-        #     model.params,
-        # )
-        save_model_to_file(model, args, extension="best", file_type=file_type)
+        save_model_to_file(model, args, extension="best")
 
     return ExperimentResult(
         dataset=dataset,
