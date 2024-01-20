@@ -28,28 +28,31 @@ def save_predictions_to_file(arr, args, extension=""):
 
 
 def save_model_to_file(model, args, extension="", file_type="pkl"):
-    filename = get_output_path(
-        args,
-        "m",
-        file_type,
-        directory="models",
-        extension=extension,
-    )
+    # filename = get_output_path(
+    #     args,
+    #     "m",
+    #     file_type,
+    #     directory="models",
+    #     extension=extension,
+    # )
 
-    print("DeBUG in save_model--- ", filename)
     if hasattr(model, "save_model"):
         try:
-            model.save_model(filename)
-        except:
-            print(f"error saving model - {filename}")
+            model.save_model(extension=extension)
+        # except:
+        except Exception as e:
+            print(e)
+            # print(f"error saving model - {filename}")
     else:
         filename = get_output_path(
             args,
             directory="models",
             filename="m",
             extension=extension,
-            file_type=file_type,
+            file_type="pkl",
         )
+        # print("DeBUG 55 - in save_model--- ", filename)
+
         with open(filename, "wb") as f:
             pickle.dump(model, f)
 
@@ -146,22 +149,14 @@ def get_output_path(args, filename, file_type, directory=None, extension=None):
         os.makedirs(dir_path)
 
     file_path = dir_path + "/" + filename
-    print("DEBUG----")
-    print("filename -- ", filename)
-    print("file_path #1  --", file_path)
 
     if extension is not None:
-        file_path += "_" + str(extension)
+        # file_path += "_" + str(extension)
+        file_path = file_path + "_" + str(extension)
 
-    print("file_path #2a  --", file_path)
-
-    file_path += "." + file_type
-    print("file_path 2b file_type", file_type)
-    print("file_path #2  --", file_path)
-
-    # print("args.model_name - ", args.model_name)
-    print("dir_path", dir_path)
-    print("file_path #3  --", file_path)
+    if file_type is not None:
+        # file_path += "." + file_type
+        file_path = file_path + "." + file_type
 
     # For example: .../m_3.pkl
 
