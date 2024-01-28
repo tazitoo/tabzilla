@@ -304,25 +304,9 @@ if __name__ == "__main__":
     experiment_args = experiment_parser.parse_args(
         args="-experiment_config " + args.experiment_config
     )
-    print(f"EXPERIMENT ARGS: {experiment_args}")
+    # print(f"EXPERIMENT ARGS: {experiment_args}")
 
     study, objective = main(experiment_args, args.model_name, args.dataset_dir)
-
-    # get the best parameters - whether from a full optuna study, or random search
-    if study.best_params is not {}:
-        best_params = study.best_params
-    else:
-        best_trial = study.best_trial.number
-        # from the random search, get the best trial from the json file
-        json_file = Path(experiment_args.output_dir).joinpath(
-            f"random_{best_trial}_s0_trial{best_trial}_results.json"
-        )
-        with open(json_file, "r") as f:
-            json_str = f.readlines()[0]
-        json_object = json.loads(json_str)
-        best_params = json_object["model"]["params"]
-    print("study ended - what is the best trial?", type(study.best_trial.number))
-    print("Best parameters:", study.best_trial.params)
 
     # dataset = TabularDataset.read(Path(args.dataset_dir).resolve())
     max_epochs = experiment_args.epochs
@@ -379,6 +363,32 @@ if __name__ == "__main__":
     # my_model = XGBoost(XGBoost.default_parameters(), model_args)
     model_handle = get_model(args.model_name)
     my_model = model_handle(model_handle.default_parameters(), model_args)
+
+    # get the best parameters - whether from a full optuna study, or random search
+    if study.best_params != {}:
+        best_params = study.best_params
+    else:
+        best_trial = study.best_trial.number
+        # from the random search, get the best trial from the json file
+        if best_trial == 0:
+            json_file = Path(experiment_args.output_dir).joinpath(
+                f"default_trial0_results.json"
+            )
+        else:
+            json_file = Path(experiment_args.output_dir).joinpath(
+                f"random_{best_trial}_s0_trial{best_trial}_results.json"
+            )
+        with open(json_file, "r") as f:
+            json_str = f.readlines()[0]
+        json_object = json.loads(json_str)
+        tmp_params = json_object["model"]["params"]
+
+        # clean up extraneous params
+        best_params = {}
+        for a_key in my_model.default_parameters().keys():
+            best_params[a_key] = tmp_params[a_key]
+    print("study ended - what is the best trial?", study.best_trial.number)
+    print("Best parameters:", best_params)
 
     # using best_params from optuna, fit the best model
     foo = final_evaluation(
