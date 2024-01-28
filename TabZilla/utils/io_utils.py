@@ -8,6 +8,19 @@ import numpy as np
 
 output_dir = "output/"
 
+def get_sample_list(x):
+    """
+    We'd like to select samples sizes that are powers of 2 for KernelSHAP
+    to demonstrate the convergence properties of the algorithm.
+    """
+    n = x.shape[0]
+    max_exp = int(np.floor(np.log2(n)))
+    min_exp = max(max_exp - 10, 2)
+    sample_list = [2**i for i in range(min_exp, max_exp + 1)]
+
+    if len(sample_list) < 10:
+        sample_list.append(x.shape[0])  # if it's a short dataset, let's use all samples
+    return sample_list
 
 def save_loss_to_file(args, arr, name, extension=""):
     filename = get_output_path(
