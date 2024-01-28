@@ -15,14 +15,14 @@ TODO:
 import argparse
 import os
 import pickle
-import sys
+#import sys
 import time
 from collections import namedtuple
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
-import shapreg
+#import shapreg
 
 # from captum.attr import KernelShap
 # from fastshap import KernelExplainer
@@ -33,7 +33,7 @@ from fastshap.utils import MaskLayer1d
 
 # from sklearn.model_selection import train_test_split
 from pytorch_lightning import seed_everything
-from scipy.spatial.distance import cosine
+#from scipy.spatial.distance import cosine
 
 # from shap import KernelExplainer as ke
 # from models.basemodel import BaseModel
@@ -41,7 +41,7 @@ from scipy.spatial.distance import cosine
 from tabzilla_alg_handler import ALL_MODELS, get_model
 from tabzilla_datasets import TabularDataset
 from tabzilla_utils import get_experiment_parser
-from utils.io_utils import get_output_path
+from utils.io_utils import get_output_path, get_sample_list
 
 # attempting to minimize "out of memory" errors in ipython
 # os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
@@ -130,16 +130,19 @@ X_val = np.array(X_val, dtype=float)
 # X_val_torch = torch.tensor(X_val).float().cuda()
 
 
-def get_sample_list(x):
-    """
-    We'd like to select samples sizes that are powers of 2 for KernelSHAP
-    to demonstrate the convergence properties of the algorithm.
-    """
-    n = x.shape[0]
-    max_exp = int(np.floor(np.log2(n)))
-    min_exp = max(max_exp - 10, 2)
-    sample_list = [2**i for i in range(min_exp, max_exp + 1)]
-    return sample_list
+# def get_sample_list(x):
+#    """
+#    We'd like to select samples sizes that are powers of 2 for KernelSHAP
+#    to demonstrate the convergence properties of the algorithm.
+#    """
+#    n = x.shape[0]
+#    max_exp = int(np.floor(np.log2(n)))
+#    min_exp = max(max_exp - 10, 2)
+#    sample_list = [2**i for i in range(min_exp, max_exp + 1)]
+#
+#    if len(sample_list) < 10:
+#        sample_list.append(x.shape[0])  # if it's a short dataset, let's use all samples
+#    return sample_list
 
 
 # Set up original model - pytorch
@@ -279,9 +282,10 @@ for a_sample in sample_list:
         # X_test_subset = X_test[idx_sub, :]
 
         # get predictions from subsetted data - check the bias term here
-        preds = my_model.alt_predict(X_train_subset)
-        pred_avg = preds.mean()
-        print("DEBUG idx_sub", idx_sub.shape, pred_avg)
+        # preds = my_model.alt_predict(X_train_subset)
+        # pred_avg = preds.mean()
+        # print("DEBUG idx_sub", idx_sub.shape, pred_avg)
+
         # X_train_subset = X_train[:a_sample, :]
         # X_test_subset = X_test[:a_sample, :]
 
@@ -302,7 +306,7 @@ for a_sample in sample_list:
         # Check for model
         if os.path.isfile(surrogate_file):
             print("Loading saved surrogate model")
-            surr = torch.load("census surrogate.pt").to(device)
+            surr = torch.load(surrogate_file).to(device)
             surr.eval()
             surrogate = Surrogate(surr, num_features)
 
@@ -321,7 +325,7 @@ for a_sample in sample_list:
             surrogate = Surrogate(surr, num_features)
 
             # Train
-            print("Training surrogate...")
+            print(f"Training surrogate...a_sample={a_sample}, a_repeat={a_repeat}")
             # print(X_train_subset.shape, X_val_torch.shape)
             surrogate.train_original_model(
                 X_train_subset,
