@@ -22,7 +22,7 @@ from scipy.spatial.distance import cosine
 from tabzilla_alg_handler import ALL_MODELS  # , get_model
 from tabzilla_datasets import TabularDataset
 from tabzilla_utils import get_experiment_parser
-from utils.io_utils import get_output_path
+from utils.io_utils import get_output_path, get_sample_list
 
 # some setup for the experiment to save XAI results
 output_dir = "output/"
@@ -107,17 +107,17 @@ X_val = np.array(X_val, dtype=float)
 # X_val_torch = torch.tensor(X_val).float().cuda()
 
 
-def get_sample_list(x):
-    """
-    We'd like to select samples sizes that are powers of 2 for KernelSHAP
-    to demonstrate the convergence properties of the algorithm.
-    """
-    n = x.shape[0]
-    max_exp = int(np.floor(np.log2(n)))
-    min_exp = max(max_exp - 10, 2)
-    sample_list = [2**i for i in range(min_exp, max_exp + 1)]
-    return sample_list
-
+#def get_sample_list(x):
+#    """
+#    We'd like to select samples sizes that are powers of 2 for KernelSHAP
+#    to demonstrate the convergence properties of the algorithm.
+#    """
+#    n = x.shape[0]
+#    max_exp = int(np.floor(np.log2(n)))
+#    min_exp = max(max_exp - 10, 2)
+#    sample_list = [2**i for i in range(min_exp, max_exp + 1)]
+#    return sample_list
+#
 
 # # Set up original model - pytorch
 # def original_model_pytorch(x):
@@ -290,8 +290,8 @@ for a_sample in sample_list:
 
 # %%
 fig, ax = plt.subplots(figsize=(5, 5))
-# ax.plot(sample_list, avg_cosine_list, "o-")
-ax.errorbar(sample_list, avg_cosine_list, avg_cosine_std, linestyle="k-", marker="o")
+ax.plot(sample_list, avg_cosine_list, "o-")
+ax.errorbar(sample_list, avg_cosine_list, avg_cosine_std, linestyle=None, color='grey', capsize=3, marker="o")
 
 ax.set_xlabel("Number of samples")
 ax.set_ylabel("Average cosine similarity")
