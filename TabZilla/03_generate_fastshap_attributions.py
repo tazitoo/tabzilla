@@ -12,18 +12,30 @@ TODO:
 - fixed seed for repeatability?
 
 """
+
+# import torch
+# torch.cuda.empty_cache()
+
+# import gc
+# gc.collect()
+
+# attempting to minimize "out of memory" errors in ipython
+# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
+# os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
 import argparse
 import os
 import pickle
-#import sys
+
+# import sys
 import time
 from collections import namedtuple
 from pathlib import Path
 
-#import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
-#import shapreg
 
+# import shapreg
 # from captum.attr import KernelShap
 # from fastshap import KernelExplainer
 import torch
@@ -33,19 +45,16 @@ from fastshap.utils import MaskLayer1d
 
 # from sklearn.model_selection import train_test_split
 from pytorch_lightning import seed_everything
-#from scipy.spatial.distance import cosine
 
+# from scipy.spatial.distance import cosine
 # from shap import KernelExplainer as ke
 # from models.basemodel import BaseModel
 # from models.tree_models import XGBoost
 from tabzilla_alg_handler import ALL_MODELS, get_model
+from tabzilla_data_processing import process_data
 from tabzilla_datasets import TabularDataset
 from tabzilla_utils import get_experiment_parser
 from utils.io_utils import get_output_path, get_sample_list
-
-# attempting to minimize "out of memory" errors in ipython
-# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
-# os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 # some setup for the experiment to save XAI results
 output_dir = "output/"
@@ -76,17 +85,9 @@ parser.add_argument(
     help="name of the algorithm",
 )
 
-# parser.add_argument(
-#     "--xai_config",
-#     required=True,
-#     type=str,
-#     # choices=ALL_MODELS,
-#     help="config file for the XAI method",
-# )
-
 args = parser.parse_args()
 # args.use_gpu = False
-print(f"ARGS: {args}")
+# print(f"ARGS: {args}")
 
 
 # now parse the dataset and search config files
@@ -113,42 +114,27 @@ train_idx = dataset.split_indeces[isplit]["train"]
 val_idx = dataset.split_indeces[isplit]["val"]
 test_idx = dataset.split_indeces[isplit]["test"]
 
-X_train = dataset.X[train_idx, :]
-y_train = dataset.y[train_idx]
-X_test = dataset.X[test_idx, :]
-y_test = dataset.y[test_idx]
-X_val = dataset.X[val_idx, :]
+# X_train = dataset.X[train_idx, :]
+# y_train = dataset.y[train_idx]
+# X_test = dataset.X[test_idx, :]
+# y_test = dataset.y[test_idx]
+# X_val = dataset.X[val_idx, :]
+
+data_processed = process_data(dataset, train_idx, val_idx, test_idx)
+X_train, y_train = data_processed["data_train"]
+X_test, y_test = data_processed["data_test"]
+X_val, y_val = data_processed["data_val"]
 
 # fix object type for X_train
 X_train = np.array(X_train, dtype=float)
 X_test = np.array(X_test, dtype=float)
 X_val = np.array(X_val, dtype=float)
 
-# cast numpy to torch
-# X_train_torch = torch.tensor(X_train).float().cuda()
-# X_test_torch = torch.tensor(X_test).float().cuda()
-# X_val_torch = torch.tensor(X_val).float().cuda()
-
-
-# def get_sample_list(x):
-#    """
-#    We'd like to select samples sizes that are powers of 2 for KernelSHAP
-#    to demonstrate the convergence properties of the algorithm.
-#    """
-#    n = x.shape[0]
-#    max_exp = int(np.floor(np.log2(n)))
-#    min_exp = max(max_exp - 10, 2)
-#    sample_list = [2**i for i in range(min_exp, max_exp + 1)]
-#
-#    if len(sample_list) < 10:
-#        sample_list.append(x.shape[0])  # if it's a short dataset, let's use all samples
-#    return sample_list
-
 
 # Set up original model - pytorch
 def original_model_pytorch(x):
     """
-    for binary classification, the model should output a 2-vector of probabilities
+    PYTORCH VERSION - for binary classification, the model should output a 2-vector of probabilities
 
     TODO: we are wasting time moving data from GPU to CPU and back again...
     """
@@ -161,7 +147,7 @@ def original_model_pytorch(x):
 # XGBoost version
 def original_model_xgb(x):
     """
-    for binary classification, the model should output a 2-vector of probabilities
+    XGBoost version - for binary classification, the model should output a 2-vector of probabilities
 
     x - torch tensor, needs to be brought back to CPU for xgb model
     """
@@ -233,29 +219,6 @@ if hasattr(my_model, "alt_predict_proba"):
 else:
     original_model = original_model_pytorch
 
-# explain the (subsetted) validation data
-# n_samples = 100
-# X_val_subset = X_val[:n_samples, :]
-
-
-# TODO - work on multiclass
-# preds = my_model.model(val_subset_torch)
-# target = torch.argmax(preds, dim=1)
-
-# generate "best" SHAP values using architecture-specific method
-# ts = my_model.attribute(X_val, remove_bias=True)
-ts = my_model.attribute(X_train, remove_bias=True)
-
-# dump out the "best" explanations as well
-tree_shap_file = get_output_path(
-    model_args,
-    directory=directory,
-    filename="tree_shap",
-    extension="",
-    file_type="pkl",
-)
-with open(tree_shap_file, "wb") as f:
-    pickle.dump(ts, f)
 
 num_features = X_train.shape[1]
 sample_list = get_sample_list(X_train)
@@ -279,18 +242,7 @@ for a_sample in sample_list:
         # )
         idx_sub = np.random.choice(idx, a_sample, replace=False)
         X_train_subset = X_train[idx_sub, :]
-        # X_test_subset = X_test[idx_sub, :]
 
-        # get predictions from subsetted data - check the bias term here
-        # preds = my_model.alt_predict(X_train_subset)
-        # pred_avg = preds.mean()
-        # print("DEBUG idx_sub", idx_sub.shape, pred_avg)
-
-        # X_train_subset = X_train[:a_sample, :]
-        # X_test_subset = X_test[:a_sample, :]
-
-        # this works for pytorch models
-        # device = my_model.device
         if hasattr(my_model, "device"):
             device = my_model.device
         else:
@@ -305,7 +257,9 @@ for a_sample in sample_list:
         )
         # Check for model
         if os.path.isfile(surrogate_file):
-            print("Loading saved surrogate model")
+            print(
+                f"Loading saved surrogate model- sample {a_sample}, repeat {a_repeat}"
+            )
             surr = torch.load(surrogate_file).to(device)
             surr.eval()
             surrogate = Surrogate(surr, num_features)
@@ -352,7 +306,9 @@ for a_sample in sample_list:
             file_type="pt",
         )
         if os.path.isfile(exp_file):
-            print("Loading saved explainer model")
+            print(
+                f"Loading saved explainer model- sample {a_sample}, repeat {a_repeat}"
+            )
             explainer = torch.load(exp_file).to(device)
             explainer.eval()
             fastshap = FastSHAP(
@@ -377,10 +333,13 @@ for a_sample in sample_list:
                 X_train_subset,
                 X_test,  # _subset,
                 batch_size=32,
+                # batch_size=min(64, X_train_subset.shape[0]),
                 num_samples=32,
+                # num_samples = X_train_subset.shape[0],
                 max_epochs=200,
                 validation_samples=10,
-                verbose=False,
+                paired_sampling=True,
+                verbose=True,
             )
             # Save explainer
             explainer.cpu()
@@ -409,7 +368,7 @@ for a_sample in sample_list:
         with open(fastshap_file, "wb") as f:
             pickle.dump(fastshap_list, f)
 
-        # Setup for KernelSHAP
+        # # Setup for KernelSHAP
         # def imputer(x, S):
         #     x = torch.tensor(x, dtype=torch.float32, device=device)
         #     S = torch.tensor(S, dtype=torch.float32, device=device)
